@@ -10,16 +10,22 @@ built from it.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
 
 class Comparable(Protocol):
-    """Anything orderable against its own type."""
+    """Anything orderable against its own type.
 
-    def __lt__(self, other: object, /) -> bool:
+    ``other`` is typed as `Any` rather than `object` because built-in
+    types like `int` and `str` only implement `__lt__` against their
+    own type, not against arbitrary objects, and would otherwise fail
+    to structurally match this protocol.
+    """
+
+    def __lt__(self, other: Any, /) -> bool:  # noqa: ANN401
         """Report whether this value sorts before ``other``."""
         ...
 
