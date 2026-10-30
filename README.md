@@ -95,6 +95,30 @@ guarantee is about identity, not just resulting value. The same holds
 for `delete`: removing a value that isn't present returns the original
 tree unchanged, by identity, not an equal-but-freshly-built one.
 
+## Equality
+
+`Node` is a frozen dataclass, so `==` already works — but it compares
+*shape* as well as values, because that's just what dataclass field
+equality does. Two trees holding the same values, built in a different
+order, can end up with different shapes and compare unequal with `==`:
+
+```python
+by_root_5 = insert(insert(insert(EMPTY, 5), 2), 8)  # root 5
+by_root_2 = insert(insert(insert(EMPTY, 2), 5), 8)  # root 2
+
+list(in_order(by_root_5)) == list(in_order(by_root_2))  # True  — same values
+by_root_5 == by_root_2  # False — different shape
+```
+
+For "do these hold the same values," use `equal`, which compares in
+sorted order and ignores shape:
+
+```python
+from safe_tree import equal
+
+equal(by_root_5, by_root_2)  # True
+```
+
 ## A slightly bigger example
 
 The point of returning a tree from every operation is that they compose
@@ -179,6 +203,7 @@ ordinary pattern matching for that case instead.
 | `insert(tree, value)` | New tree with `value` added. |
 | `delete(tree, value)` | New tree with `value` removed. |
 | `member(tree, value)` | Membership test. |
+| `equal(a, b)` | Same values, regardless of shape (`==` also works, but is shape-sensitive). |
 | `map_tree(tree, f)` | Structure-preserving map over every value. |
 | `fold(tree, f, init)` | In-order reduction to a single value. |
 | `filter_tree(tree, pred)` | Rebuild keeping only matching values. |

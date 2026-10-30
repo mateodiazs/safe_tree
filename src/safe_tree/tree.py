@@ -10,6 +10,7 @@ built from it.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
@@ -156,6 +157,27 @@ def member[C: Comparable](tree: Tree[C], value: C) -> bool:
             if v < value:
                 return member(right, value)
             return True
+
+
+def equal[A](a: Tree[A], b: Tree[A]) -> bool:
+    """Report whether two trees hold the same values, regardless of shape.
+
+    ``a == b`` also exists (every `Node` is a frozen dataclass), but it
+    compares shape as well as values: two trees built by inserting the
+    same values in a different order can have different shapes and so
+    compare unequal with ``==`` even though they hold the same values.
+    This compares values only, via their sorted order.
+
+    Args:
+        a: The first tree.
+        b: The second tree.
+
+    Returns:
+        True if `a` and `b` contain the same values in the same sorted
+        order, False otherwise.
+    """
+    sentinel = object()
+    return all(x == y for x, y in zip_longest(in_order(a), in_order(b), fillvalue=sentinel))
 
 
 def map_tree[A, B](tree: Tree[A], f: Callable[[A], B]) -> Tree[B]:
