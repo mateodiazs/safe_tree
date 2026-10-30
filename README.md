@@ -218,14 +218,31 @@ shown above) via [pdoc](https://pdoc.dev):
 uv run pdoc -o docs safe_tree
 ```
 
+## Playground
+
+A small local web app for watching structural sharing happen instead of
+just reading about it: insert and delete values, and every version you
+create shows up on a timeline. Selecting a version highlights which of
+its nodes are new (amber) versus literally the same object as in the
+version before it (pine outline) — the same thing `tests/test_sharing.py`
+checks with `is`.
+
+```sh
+uv run --group playground uvicorn playground.app:app --host 0.0.0.0 --port 8000
+```
+
+Open `http://localhost:8000` on the same machine, or, since it's bound
+to `0.0.0.0`, `http://<your-machine's-LAN-IP>:8000` from a phone on the
+same Wi-Fi network.
+
 ## Development
 
 ```sh
-uv sync --all-extras
-uv run ruff check .      # lint
-uv run ruff format .     # format
-uv run mypy src tests    # strict type-check
-uv run pytest            # tests, incl. doctests and hypothesis properties
+uv sync --all-extras --all-groups
+uv run ruff check .                # lint
+uv run ruff format .               # format
+uv run mypy src tests playground   # strict type-check
+uv run pytest                      # tests, incl. doctests and hypothesis properties
 ```
 
 ## Looking toward ML
