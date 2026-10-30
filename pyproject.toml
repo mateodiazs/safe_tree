@@ -30,6 +30,7 @@ ignore = [
     "D212",   # conflicts with D213 (multi-line docstring summary start)
     "COM812", # conflicts with ruff format's trailing comma handling
     "ISC001", # conflicts with ruff format's implicit string concat handling
+    "CPY",    # no copyright header boilerplate
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -40,6 +41,7 @@ convention = "google"
     "S101",    # assert is the point of a test
     "D",       # tests don't need docstrings
     "ANN201",  # test functions don't need return annotations
+    "INP001",  # tests are not a namespace package, pytest doesn't need __init__.py
 ]
 
 [tool.mypy]
