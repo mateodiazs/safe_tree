@@ -1,23 +1,30 @@
 # safe_tree
 
 A purely functional, immutable tree for Python. Every operation returns a
-new tree; nothing is ever mutated in place. Updates share structure with
-the tree they were built from instead of copying it, and
-[lenses](#lenses) give you precise, composable updates without
-hand-written recursive reconstruction.
+new tree instead of mutating the one you have, so old versions stay valid
+forever — and because updates share structure instead of copying it, that
+safety doesn't cost you a full copy on every change.
 
 ```python
-from safe_tree import EMPTY, insert, member, in_order
+from safe_tree import EMPTY, insert, delete, member, in_order
 
-tree = insert(insert(insert(EMPTY, 5), 2), 8)
-member(tree, 2)  # True
-list(in_order(tree))  # [2, 5, 8]
+v1 = insert(insert(insert(EMPTY, 5), 2), 8)
+v2 = insert(v1, 7)
+v3 = delete(v2, 2)
+
+list(in_order(v1))  # [2, 5, 8]       <- v1 never changes
+list(in_order(v2))  # [2, 5, 7, 8]
+list(in_order(v3))  # [5, 7, 8]
+member(v1, 7)  # False — v1 is exactly what it was before v2 existed
 ```
+
+Three versions of the same tree, all live at once, none of them stepping
+on each other. That's the whole pitch.
 
 ## Why
 
 - **Immutable by construction.** `insert`, `delete`, `map_tree`, and
-  `filter_tree` all return a new tree. The one you started with is still
+  `filter_tree` all return a new tree. Whatever you started with is still
   there, unchanged, for as long as you hold a reference to it.
 - **Structural sharing, not copying.** An update only allocates the nodes
   on the path to the change — see [below](#structural-sharing).
@@ -35,59 +42,47 @@ uv add git+https://github.com/mateodiazs/safe_tree
 
 ## The shape of a tree
 
-A `Tree[A]` is either `Empty`, or a `Node[A]` holding a value and two
+A `Tree[A]` is either `Empty`, or a `Node[A]` holding one value and two
 child trees:
 
-```mermaid
-classDiagram
-    class Tree
-    class Empty
-    class Node {
-        value
-        left
-        right
-    }
-    Tree <|-- Empty
-    Tree <|-- Node
-    Node --> Tree : left
-    Node --> Tree : right
+```
+Tree[A]
+├── Empty                 — exactly one instance, the module-level EMPTY
+└── Node[A]
+    ├── value : A
+    ├── left  : Tree[A]
+    └── right : Tree[A]
 ```
 
-`A` is the value type, shared by `Tree[A]`, `Node[A]`, and `Node.value` —
-omitted above only because Mermaid's class diagrams don't render Python
-generics cleanly. There's exactly one `Empty` — the module-level
-`EMPTY` — and it's never mutated or recreated, so emptiness is always
-the same object.
+`EMPTY` is never mutated or recreated, so emptiness is always the same
+object — that's what makes `delete(tree, missing_value) is tree` true
+rather than merely equal.
 
 ## Structural sharing
 
 `insert` and `delete` only copy the nodes on the path to the change.
-Inserting `7` into a tree rooted at `5` never touches the left subtree,
-so the new tree's left child is the *same object* as the old tree's:
+Starting from a tree rooted at `5`, inserting `7` never has a reason to
+touch the left subtree at all:
 
-```mermaid
-graph TD
-    subgraph before["tree = insert(insert(insert(EMPTY, 5), 2), 8)"]
-        A5(("5")) --> A2(("2"))
-        A5 --> A8(("8"))
-    end
-    subgraph after["updated = insert(tree, 7)"]
-        B5(("5′")) --> A2
-        B5 --> B8(("8′"))
-        B8 --> B7(("7"))
-    end
+```
+v1 = insert(insert(insert(EMPTY, 5), 2), 8)
 
-    style A2 fill:#e7eade,stroke:#52604f,color:#1b2420
-    style B5 fill:#e3a64b,stroke:#a6672a,color:#1b2420
-    style B8 fill:#e3a64b,stroke:#a6672a,color:#1b2420
-    style B7 fill:#e3a64b,stroke:#a6672a,color:#1b2420
-    style A5 fill:#e7eade,stroke:#52604f,color:#1b2420
-    style A8 fill:#e7eade,stroke:#52604f,color:#1b2420
+        5
+       / \
+      2   8
+
+v2 = insert(v1, 7)
+
+        5'
+       /  \
+      2    8'
+            \
+             7
 ```
 
-Node `2` is drawn once because it's referenced by *both* trees — not
-duplicated. This is exactly what `tests/test_sharing.py` asserts with
-`is`, not just `==`:
+Node `2` isn't redrawn in `v2` by accident — it's the exact same Python
+object as node `2` in `v1`. `insert` only had to build `5'` and `8'`,
+the two nodes on the path down to where `7` belongs:
 
 ```python
 tree = insert(insert(insert(EMPTY, 5), 2), 8)
@@ -95,21 +90,48 @@ updated = insert(tree, 7)
 assert tree.left is updated.left  # the same object, not a copy
 ```
 
-The same identity-preserving behavior holds for `delete`: deleting a
-value that isn't present returns the original tree unchanged, by
-identity, not an equal-but-new one.
+`tests/test_sharing.py` asserts exactly this with `is`, not `==` — the
+guarantee is about identity, not just resulting value. The same holds
+for `delete`: removing a value that isn't present returns the original
+tree unchanged, by identity, not an equal-but-freshly-built one.
+
+## A slightly bigger example
+
+The point of returning a tree from every operation is that they compose
+without ceremony:
+
+```python
+from safe_tree import EMPTY, fold, filter_tree, map_tree, insert, in_order
+
+scores = [55, 72, 88, 91, 63, 79, 45]
+
+tree = EMPTY
+for score in scores:
+    tree = insert(tree, score)
+
+passing = filter_tree(tree, lambda s: s >= 60)
+curved = map_tree(passing, lambda s: min(100, s + 5))
+total = fold(curved, lambda acc, s: acc + s, 0)
+
+list(in_order(curved))  # [68, 77, 84, 93, 96]
+round(total / len(list(in_order(curved))), 1)  # 83.6
+```
+
+`tree`, `passing`, and `curved` are three different trees. Nothing about
+building `curved` disturbed `passing`, and nothing about building
+`passing` disturbed the original `tree` — you could keep all three
+around and query any of them.
 
 ## Lenses
 
 A `Lens[S, A]` is a frozen struct holding a pure `get` and `put` pair
 focused on part `A` of a whole `S`. `then` composes two lenses so you can
-reach straight through a node into a field of its own payload:
+reach straight through a node into a field of its own payload, without
+writing the reconstruction by hand:
 
-```mermaid
-graph LR
-    N["Node&lt;Point&gt;"] -- "value_lens().get" --> P["Point(x, y)"]
-    P -- "x_lens.get" --> X["x"]
-    N -. "then(value_lens(), x_lens).get" .-> X
+```
+Node[Point]  --value_lens()-->  Point  --x_lens-->  int
+     \_____________ then(value_lens(), x_lens) _____________/
 ```
 
 ```python
@@ -135,15 +157,20 @@ node_x.get(node)  # 1
 node_x.put(node, 9).value  # Point(x=9, y=2)
 ```
 
-`value_lens`, `left_lens`, and `right_lens` are generic functions, not
+Without `then`, that `put` would mean manually destructuring `node`,
+destructuring `node.value`, building a new `Point` with `x` swapped, and
+rebuilding the `Node` around it. `then` turns that into one lens, used
+like any other.
+
+`value_lens`, `left_lens`, and `right_lens` are generic *functions*, not
 pre-built values — call them (`value_lens()`), don't reference them
 bare, so `mypy` can resolve the type parameter at each use site.
 
 Lenses here focus on a node's own fields (`value`, `left`, `right`),
-which are always present and so always safe to get/put. A tree position
+which always exist and so are always safe to get/put. A tree position
 several levels down may or may not exist — that's inherently partial,
 which is why there's no general `path_lens`; combine a lens with
-ordinary pattern matching for that case.
+ordinary pattern matching for that case instead.
 
 ## API
 
