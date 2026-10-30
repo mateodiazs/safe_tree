@@ -1,5 +1,7 @@
 """safe_tree: a purely functional, immutable tree."""
 
+__docformat__ = "google"
+
 from safe_tree.lens import Lens, left_lens, right_lens, then, value_lens
 from safe_tree.tree import (
     EMPTY,
