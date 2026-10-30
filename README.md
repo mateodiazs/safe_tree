@@ -10,8 +10,8 @@ hand-written recursive reconstruction.
 from safe_tree import EMPTY, insert, member, in_order
 
 tree = insert(insert(insert(EMPTY, 5), 2), 8)
-member(tree, 2)          # True
-list(in_order(tree))     # [2, 5, 8]
+member(tree, 2)  # True
+list(in_order(tree))  # [2, 5, 8]
 ```
 
 ## Why
@@ -116,10 +116,12 @@ graph LR
 from dataclasses import dataclass
 from safe_tree import EMPTY, Lens, Node, then, value_lens
 
+
 @dataclass(frozen=True, slots=True)
 class Point:
     x: int
     y: int
+
 
 x_lens: Lens[Point, int] = Lens(
     get=lambda p: p.x,
@@ -129,8 +131,8 @@ x_lens: Lens[Point, int] = Lens(
 node = Node(Point(1, 2), EMPTY, EMPTY)
 node_x = then(value_lens(), x_lens)
 
-node_x.get(node)            # 1
-node_x.put(node, 9).value   # Point(x=9, y=2)
+node_x.get(node)  # 1
+node_x.put(node, 9).value  # Point(x=9, y=2)
 ```
 
 `value_lens`, `left_lens`, and `right_lens` are generic functions, not
