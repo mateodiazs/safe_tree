@@ -3,7 +3,9 @@
 A purely functional, immutable tree for Python. Every operation returns a
 new tree instead of mutating the one you have, so old versions stay valid
 forever — and because updates share structure instead of copying it, that
-safety doesn't cost you a full copy on every change.
+safety doesn't cost you a full copy on every change. It also rebalances
+itself (AVL) on every change, so it stays fast and doesn't blow Python's
+recursion limit regardless of what order you feed it values in.
 
 ```python
 from safe_tree import EMPTY, insert, delete, member, in_order
@@ -28,6 +30,9 @@ on each other. That's the whole pitch.
   there, unchanged, for as long as you hold a reference to it.
 - **Structural sharing, not copying.** An update only allocates the nodes
   on the path to the change — see [below](#structural-sharing).
+- **Self-balancing.** Every `insert`/`delete` rebalances (AVL) on the way
+  back up, so depth stays within a constant factor of log2(size) no
+  matter what order values arrive in — see [below](#staying-balanced).
 - **No behavior hides in classes.** Data lives in frozen structs
   (`Node`, `Lens`); every operation is a plain function over that data.
 - **Typed end to end.** `mypy --strict` clean, no implicit `Any`.
@@ -49,14 +54,21 @@ child trees:
 Tree[A]
 ├── Empty                 — exactly one instance, the module-level EMPTY
 └── Node[A]
-    ├── value : A
-    ├── left  : Tree[A]
-    └── right : Tree[A]
+    ├── value  : A
+    ├── left   : Tree[A]
+    ├── right  : Tree[A]
+    ├── height : int        — cached, kept correct by insert/delete
+    └── size   : int        — cached, kept correct by insert/delete
 ```
 
 `EMPTY` is never mutated or recreated, so emptiness is always the same
 object — that's what makes `delete(tree, missing_value) is tree` true
-rather than merely equal.
+rather than merely equal. `height`/`size` are bookkeeping for AVL
+rebalancing and O(1) `depth`/`size`/`kth` — pattern-matching on a
+node's logical shape (`case Node(value, left, right):`) still works,
+since they're excluded from `Node.__match_args__`. Construct nodes via
+`insert`/`EMPTY`/`from_iterable`, not `Node(...)` directly with
+non-empty children, so this bookkeeping stays correct.
 
 ## Structural sharing
 
@@ -95,19 +107,54 @@ guarantee is about identity, not just resulting value. The same holds
 for `delete`: removing a value that isn't present returns the original
 tree unchanged, by identity, not an equal-but-freshly-built one.
 
+Honest caveat: when a rotation *does* fire (see below), it rebuilds a
+couple of extra nodes beyond the bare insertion path, since a rotation
+changes which nodes are whose parent. Still only O(log n) nodes touched
+per operation — just not always the absolute minimum an unbalanced BST
+would manage on its best day.
+
+## Staying balanced
+
+A plain BST's shape depends entirely on insertion order — insert
+already-sorted values and it degenerates into a straight line, O(n)
+deep instead of O(log n). Past about 1000 elements inserted in sorted
+order, that's not just slow, it's a crash: every operation here is
+recursive, and a straight-line tree blows Python's default recursion
+limit.
+
+```python
+from safe_tree import EMPTY, insert, depth, size
+
+tree = EMPTY
+for i in range(100_000):
+    tree = insert(tree, i)  # worst case for an unbalanced BST
+
+size(tree)  # 100000
+depth(tree)  # 17 — not 100000
+```
+
+Every `insert`/`delete` rebalances on the way back up (AVL: rotate
+when a node's left and right heights differ by more than one), so
+depth stays within a small constant factor of log2(size) regardless of
+insertion order. `tests/test_tree.py` pins this down directly, inserting
+10,000 sorted values and asserting depth stays logarithmic rather than
+crashing.
+
 ## Equality
 
 `Node` is a frozen dataclass, so `==` already works — but it compares
-*shape* as well as values, because that's just what dataclass field
-equality does. Two trees holding the same values, built in a different
-order, can end up with different shapes and compare unequal with `==`:
+*shape* (and the cached `height`/`size` bookkeeping) as well as values,
+because that's just what dataclass field equality does. Even with AVL
+balancing, more than one valid balanced shape can exist for the same
+set of values, so two trees holding the same values can still compare
+unequal with `==`:
 
 ```python
-by_root_5 = insert(insert(insert(EMPTY, 5), 2), 8)  # root 5
-by_root_2 = insert(insert(insert(EMPTY, 2), 5), 8)  # root 2
+by_ascending = insert(insert(insert(insert(EMPTY, 0), 1), 2), 3)
+by_other_order = insert(insert(insert(insert(EMPTY, 0), 1), 3), 2)
 
-list(in_order(by_root_5)) == list(in_order(by_root_2))  # True  — same values
-by_root_5 == by_root_2  # False — different shape
+list(in_order(by_ascending)) == list(in_order(by_other_order))  # True  — same values
+by_ascending == by_other_order  # False — different (both valid) shapes
 ```
 
 For "do these hold the same values," use `equal`, which compares in
@@ -116,7 +163,7 @@ sorted order and ignores shape:
 ```python
 from safe_tree import equal
 
-equal(by_root_5, by_root_2)  # True
+equal(by_ascending, by_other_order)  # True
 ```
 
 ## A slightly bigger example
@@ -145,6 +192,45 @@ round(total / len(list(in_order(curved))), 1)  # 83.6
 building `curved` disturbed `passing`, and nothing about building
 `passing` disturbed the original `tree` — you could keep all three
 around and query any of them.
+
+## Order statistics and range queries
+
+Using the same `tree` of scores from above — `minimum`/`maximum` are
+O(log n); `kth` uses each node's cached `size` to find the k-th
+smallest value (0-indexed) in O(log n) rather than materializing a full
+traversal; `range_query` prunes subtrees entirely outside the bound
+instead of filtering everything, so it costs O(log n + k) for k results:
+
+```python
+from safe_tree import minimum, maximum, kth, range_query
+
+minimum(tree)  # 45
+maximum(tree)  # 91
+kth(tree, 0)  # 45 — smallest
+kth(tree, 3)  # 72 — 4th smallest
+list(range_query(tree, 60, 90))  # [63, 72, 79, 88]
+```
+
+## Set algebra
+
+`union`/`intersection`/`difference` build on `insert`/`member`/`filter_tree`
+directly rather than a specialized merge algorithm, so they're simple
+and obviously correct, at O(size(other) * log n) rather than the
+O(m + n) a from-scratch tree-merge could achieve:
+
+```python
+from safe_tree import EMPTY, insert, in_order, union, intersection, difference
+
+a, b = EMPTY, EMPTY
+for v in [1, 2, 3, 4]:
+    a = insert(a, v)
+for v in [3, 4, 5, 6]:
+    b = insert(b, v)
+
+list(in_order(union(a, b)))  # [1, 2, 3, 4, 5, 6]
+list(in_order(intersection(a, b)))  # [3, 4]
+list(in_order(difference(a, b)))  # [1, 2]
+```
 
 ## Lenses
 
@@ -200,15 +286,20 @@ ordinary pattern matching for that case instead.
 
 | | |
 |---|---|
-| `insert(tree, value)` | New tree with `value` added. |
-| `delete(tree, value)` | New tree with `value` removed. |
+| `insert(tree, value)` | New tree with `value` added, self-balancing. |
+| `delete(tree, value)` | New tree with `value` removed, self-balancing. |
 | `member(tree, value)` | Membership test. |
 | `equal(a, b)` | Same values, regardless of shape (`==` also works, but is shape-sensitive). |
+| `minimum(tree)` / `maximum(tree)` | Smallest / largest value, O(log n). |
+| `kth(tree, k)` | The k-th smallest value (0-indexed), O(log n). |
+| `range_query(tree, lo, hi)` | Values in `[lo, hi]`, O(log n + k). |
+| `union` / `intersection` / `difference` | Set algebra between two trees. |
+| `from_iterable(values)` | Build a tree from any iterable. |
 | `map_tree(tree, f)` | Structure-preserving map over every value. |
 | `fold(tree, f, init)` | In-order reduction to a single value. |
 | `filter_tree(tree, pred)` | Rebuild keeping only matching values. |
 | `in_order` / `pre_order` / `post_order` | Lazy traversal iterators. |
-| `size(tree)` / `depth(tree)` | Structural measures. |
+| `size(tree)` / `depth(tree)` | Structural measures, both O(1). |
 | `Lens`, `then`, `value_lens`, `left_lens`, `right_lens` | Composable node accessors. |
 
 Full API reference (generated from the same Google-style docstrings
@@ -221,18 +312,33 @@ uv run pdoc -o docs safe_tree
 ## Development
 
 ```sh
-uv sync --all-extras
+uv sync --all-extras --all-groups
 uv run ruff check .      # lint
 uv run ruff format .     # format
-uv run mypy src tests    # strict type-check
-uv run pytest            # tests, incl. doctests and hypothesis properties
+uv run mypy src tests conftest.py  # strict type-check
+uv run pytest            # tests, incl. doctests, hypothesis properties, and JAX (skipped if not installed)
 ```
 
-## Looking toward ML
+## JAX
 
-Nothing here is ML-specific yet, but the shape is deliberately kept
-compatible with it: a frozen, tagged-union tree is close to what JAX's
-`pytree` / `optree` protocols expect, and structural sharing makes
-keeping every intermediate version of a dataset or a split cheap in
-memory. Not in scope today — noted so early API choices don't foreclose
-it later.
+A frozen, tagged-union tree is already close to what JAX's `pytree`
+protocol expects — `jax_support.register()` makes it exact, so trees
+pass transparently through `jax.tree_util.tree_map`, `jax.jit`, and
+other pytree-aware transforms. `jax` is optional (`uv sync --group jax`),
+not a dependency of `safe_tree` itself:
+
+```python
+import jax
+from safe_tree import EMPTY, insert, in_order
+from safe_tree.jax_support import register
+
+register()  # once, after importing jax
+
+tree = insert(insert(insert(EMPTY, 5), 2), 8)
+jax.tree_util.tree_leaves(tree)  # [5, 2, 8]
+list(in_order(jax.tree_util.tree_map(lambda v: v * 2, tree)))  # [4, 10, 16]
+```
+
+Structural sharing also means keeping every intermediate version of a
+dataset or a split is cheap in memory — a useful property for anything
+that wants to checkpoint or time-travel through training state.
