@@ -1,9 +1,31 @@
+import math
 from collections.abc import Sequence
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from safe_tree import EMPTY, Tree, delete, equal, fold, in_order, insert, map_tree, member, size
+from safe_tree import (
+    EMPTY,
+    Tree,
+    delete,
+    depth,
+    difference,
+    equal,
+    fold,
+    from_iterable,
+    in_order,
+    insert,
+    intersection,
+    kth,
+    map_tree,
+    maximum,
+    member,
+    minimum,
+    range_query,
+    size,
+    union,
+)
 
 
 def build(values: Sequence[int]) -> Tree[int]:
@@ -76,9 +98,91 @@ def test_equal_detects_a_different_value(values: list[int], extra: int) -> None:
 
 
 def test_dataclass_eq_is_shape_sensitive_but_equal_is_not() -> None:
-    by_root_5 = build([5, 2, 8])
-    by_root_2 = build([2, 5, 8])
+    # Same four values, two insertion orders that settle into different
+    # (both individually valid) AVL shapes.
+    by_ascending = build([0, 1, 2, 3])
+    by_other_order = build([0, 1, 3, 2])
 
-    assert list(in_order(by_root_5)) == list(in_order(by_root_2))
-    assert by_root_5 != by_root_2  # different shape
-    assert equal(by_root_5, by_root_2)  # same values
+    assert list(in_order(by_ascending)) == list(in_order(by_other_order))
+    assert by_ascending != by_other_order  # different shape
+    assert equal(by_ascending, by_other_order)  # same values
+
+
+@given(st.lists(st.integers()))
+def test_tree_stays_balanced(values: list[int]) -> None:
+    tree = build(values)
+    n = size(tree)
+    if n == 0:
+        assert depth(tree) == 0
+        return
+    # True AVL worst case is ~1.44 * log2(n); 2x log2 leaves comfortable margin
+    # without pinning the test to the exact constant.
+    assert depth(tree) <= 2 * math.log2(n + 1)
+
+
+def test_tree_stays_balanced_after_ten_thousand_sorted_inserts() -> None:
+    # The scenario that crashes a plain, unbalanced BST with a
+    # RecursionError around depth 1000 (Python's recursion limit).
+    tree = build(range(10_000))
+    assert size(tree) == 10_000
+    assert depth(tree) <= 2 * math.log2(10_001)
+
+
+@given(st.lists(st.integers(), min_size=1))
+def test_minimum_and_maximum(values: list[int]) -> None:
+    tree = build(values)
+    assert minimum(tree) == min(values)
+    assert maximum(tree) == max(values)
+
+
+def test_minimum_of_empty_raises() -> None:
+    with pytest.raises(ValueError, match="empty"):
+        minimum(EMPTY)
+
+
+def test_maximum_of_empty_raises() -> None:
+    with pytest.raises(ValueError, match="empty"):
+        maximum(EMPTY)
+
+
+@given(st.lists(st.integers(), min_size=1))
+def test_kth_matches_sorted_index(values: list[int]) -> None:
+    tree = build(values)
+    for k, expected in enumerate(sorted(set(values))):
+        assert kth(tree, k) == expected
+
+
+def test_kth_out_of_range_raises() -> None:
+    tree = build([1, 2, 3])
+    with pytest.raises(IndexError):
+        kth(tree, 3)
+
+
+@given(st.lists(st.integers()), st.integers(), st.integers())
+def test_range_query_matches_a_filtered_sort(values: list[int], lo: int, hi: int) -> None:
+    tree = build(values)
+    expected = sorted(v for v in set(values) if lo <= v <= hi)
+    assert list(range_query(tree, lo, hi)) == expected
+
+
+@given(st.lists(st.integers()))
+def test_from_iterable_matches_sequential_insert(values: list[int]) -> None:
+    assert list(in_order(from_iterable(values))) == list(in_order(build(values)))
+
+
+@given(st.lists(st.integers()), st.lists(st.integers()))
+def test_union_matches_set_union(a: list[int], b: list[int]) -> None:
+    result = union(build(a), build(b))
+    assert set(in_order(result)) == set(a) | set(b)
+
+
+@given(st.lists(st.integers()), st.lists(st.integers()))
+def test_intersection_matches_set_intersection(a: list[int], b: list[int]) -> None:
+    result = intersection(build(a), build(b))
+    assert set(in_order(result)) == set(a) & set(b)
+
+
+@given(st.lists(st.integers()), st.lists(st.integers()))
+def test_difference_matches_set_difference(a: list[int], b: list[int]) -> None:
+    result = difference(build(a), build(b))
+    assert set(in_order(result)) == set(a) - set(b)

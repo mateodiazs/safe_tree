@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from safe_tree.tree import Node, Tree
+from safe_tree.tree import Node, Tree, _node
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -50,7 +50,7 @@ def value_lens[A]() -> Lens[Node[A], A]:
     """
     return Lens(
         get=lambda node: node.value,
-        put=lambda node, value: Node(value, node.left, node.right),
+        put=lambda node, value: _node(value, node.left, node.right),
     )
 
 
@@ -62,7 +62,7 @@ def left_lens[A]() -> Lens[Node[A], Tree[A]]:
     """
     return Lens(
         get=lambda node: node.left,
-        put=lambda node, left: Node(node.value, left, node.right),
+        put=lambda node, left: _node(node.value, left, node.right),
     )
 
 
@@ -74,5 +74,5 @@ def right_lens[A]() -> Lens[Node[A], Tree[A]]:
     """
     return Lens(
         get=lambda node: node.right,
-        put=lambda node, right: Node(node.value, node.left, right),
+        put=lambda node, right: _node(node.value, node.left, right),
     )
