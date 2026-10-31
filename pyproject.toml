@@ -18,6 +18,9 @@ dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.3",
 ]
+jax = [
+    "jax>=0.4",
+]
 
 [tool.ruff]
 line-length = 100
@@ -42,6 +45,7 @@ convention = "google"
     "D",       # tests don't need docstrings
     "ANN201",  # test functions don't need return annotations
     "INP001",  # tests are not a namespace package, pytest doesn't need __init__.py
+    "PLR2004", # expected values in assertions are plain numbers, not magic constants
 ]
 
 [tool.mypy]
