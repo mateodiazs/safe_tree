@@ -309,14 +309,31 @@ shown above) via [pdoc](https://pdoc.dev):
 uv run pdoc -o docs safe_tree
 ```
 
+## Playground
+
+A small local web app for watching structural sharing happen instead of
+just reading about it: insert and delete values, and every version you
+create shows up on a timeline. Selecting a version highlights which of
+its nodes are new (amber) versus literally the same object as in the
+version before it (pine outline) — the same thing `tests/test_sharing.py`
+checks with `is`.
+
+```sh
+uv run --group playground uvicorn playground.app:app --host 0.0.0.0 --port 8000
+```
+
+Open `http://localhost:8000` on the same machine, or, since it's bound
+to `0.0.0.0`, `http://<your-machine's-LAN-IP>:8000` from a phone on the
+same Wi-Fi network.
+
 ## Development
 
 ```sh
 uv sync --all-extras --all-groups
-uv run ruff check .      # lint
-uv run ruff format .     # format
-uv run mypy src tests conftest.py  # strict type-check
-uv run pytest            # tests, incl. doctests, hypothesis properties, and JAX (skipped if not installed)
+uv run ruff check .                           # lint
+uv run ruff format .                          # format
+uv run mypy src tests playground conftest.py  # strict type-check
+uv run pytest                                 # tests, incl. doctests, hypothesis properties, and JAX (skipped if not installed)
 ```
 
 ## JAX
@@ -340,5 +357,6 @@ list(in_order(jax.tree_util.tree_map(lambda v: v * 2, tree)))  # [4, 10, 16]
 ```
 
 Structural sharing also means keeping every intermediate version of a
-dataset or a split is cheap in memory — a useful property for anything
-that wants to checkpoint or time-travel through training state.
+dataset or a split — exactly what the [playground](#playground) shows
+off — is cheap in memory, a useful property for anything that wants to
+checkpoint or time-travel through training state.
