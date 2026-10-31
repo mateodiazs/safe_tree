@@ -12,50 +12,125 @@
       <h1>safe_tree playground</h1>
       <p class="subtitle">
         Every insert/delete adds a new version below. Old versions never change.
+        The tree rebalances (AVL) as needed — chips marked <em>rotated</em> show when.
       </p>
     </header>
 
-    <div class="panel">
-      <div class="controls">
-        <input id="value-input" type="number" inputmode="numeric" placeholder="value" />
-        <button id="insert-btn" class="primary">Insert</button>
-        <button id="delete-btn" class="secondary">Delete</button>
-        <button id="random-btn">Random</button>
-        <button id="reset-btn">Reset</button>
-      </div>
+    <div class="trees">
+      <section class="tree-panel" data-tree-id="a">
+        <h2>Tree A</h2>
+
+        <div class="panel">
+          <div class="controls">
+            <input class="value-input" type="number" inputmode="numeric" placeholder="value" />
+            <button class="insert-btn primary">Insert</button>
+            <button class="delete-btn secondary">Delete</button>
+            <button class="random-btn">Random</button>
+            <button class="reset-btn">Reset</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="timeline"></div>
+        </div>
+
+        <div class="panel">
+          <div class="legend">
+            <span><span class="swatch new"></span>new / copied</span>
+            <span><span class="swatch shared"></span>shared</span>
+            <span><span class="swatch in-range"></span>in range</span>
+          </div>
+          <div class="tree-wrap">
+            <svg class="tree-svg" viewBox="0 0 100 100"></svg>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="stats">
+            <div><div class="stat-value stat-size">0</div><div class="stat-label">size</div></div>
+            <div><div class="stat-value stat-depth">0</div><div class="stat-label">depth</div></div>
+            <div><div class="stat-value stat-min">–</div><div class="stat-label">min</div></div>
+            <div><div class="stat-value stat-max">–</div><div class="stat-label">max</div></div>
+            <div><div class="stat-value stat-version">v0</div><div class="stat-label">version</div></div>
+          </div>
+          <div class="values"></div>
+
+          <div class="lookup-row">
+            <label>kth(<input class="kth-input" type="number" min="0" value="0" />) = <span class="kth-result">–</span></label>
+          </div>
+
+          <div class="range-row">
+            <div class="range-label">range_query: [<span class="range-lo-value">0</span>, <span class="range-hi-value">0</span>]</div>
+            <input class="range-lo" type="range" />
+            <input class="range-hi" type="range" />
+          </div>
+        </div>
+      </section>
+
+      <section class="tree-panel" data-tree-id="b">
+        <h2>Tree B</h2>
+
+        <div class="panel">
+          <div class="controls">
+            <input class="value-input" type="number" inputmode="numeric" placeholder="value" />
+            <button class="insert-btn primary">Insert</button>
+            <button class="delete-btn secondary">Delete</button>
+            <button class="random-btn">Random</button>
+            <button class="reset-btn">Reset</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="timeline"></div>
+        </div>
+
+        <div class="panel">
+          <div class="legend">
+            <span><span class="swatch new"></span>new / copied</span>
+            <span><span class="swatch shared"></span>shared</span>
+            <span><span class="swatch in-range"></span>in range</span>
+          </div>
+          <div class="tree-wrap">
+            <svg class="tree-svg" viewBox="0 0 100 100"></svg>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="stats">
+            <div><div class="stat-value stat-size">0</div><div class="stat-label">size</div></div>
+            <div><div class="stat-value stat-depth">0</div><div class="stat-label">depth</div></div>
+            <div><div class="stat-value stat-min">–</div><div class="stat-label">min</div></div>
+            <div><div class="stat-value stat-max">–</div><div class="stat-label">max</div></div>
+            <div><div class="stat-value stat-version">v0</div><div class="stat-label">version</div></div>
+          </div>
+          <div class="values"></div>
+
+          <div class="lookup-row">
+            <label>kth(<input class="kth-input" type="number" min="0" value="0" />) = <span class="kth-result">–</span></label>
+          </div>
+
+          <div class="range-row">
+            <div class="range-label">range_query: [<span class="range-lo-value">0</span>, <span class="range-hi-value">0</span>]</div>
+            <input class="range-lo" type="range" />
+            <input class="range-hi" type="range" />
+          </div>
+        </div>
+      </section>
     </div>
 
-    <div class="panel">
-      <div class="timeline" id="timeline"></div>
-    </div>
-
-    <div class="panel">
-      <div class="legend">
-        <span><span class="swatch new"></span>new / copied node</span>
-        <span><span class="swatch shared"></span>shared with previous version</span>
-      </div>
-      <div id="tree-wrap">
-        <svg id="tree-svg" viewBox="0 0 100 100"></svg>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="stats">
-        <div>
-          <div class="stat-value" id="stat-size">0</div>
-          <div class="stat-label">size</div>
-        </div>
-        <div>
-          <div class="stat-value" id="stat-depth">0</div>
-          <div class="stat-label">depth</div>
-        </div>
-        <div>
-          <div class="stat-value" id="stat-version">v0</div>
-          <div class="stat-label">version</div>
+    <section class="combine-panel">
+      <h2>Combine</h2>
+      <div class="panel">
+        <div class="controls">
+          <button id="union-btn" class="primary">A | B (union)</button>
+          <button id="intersection-btn" class="primary">A &amp; B (intersection)</button>
+          <button id="difference-btn" class="primary">A - B (difference)</button>
         </div>
       </div>
-      <div class="values" id="values"></div>
-    </div>
+      <div class="panel" id="combine-result">
+        <p class="empty-note">Pick an operation above.</p>
+      </div>
+    </section>
   </div>
 
   <script src="/app.js"></script>

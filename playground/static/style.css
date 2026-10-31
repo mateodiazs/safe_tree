@@ -7,6 +7,7 @@
   --amber: #a6672a;
   --pine: #3c6b4f;
   --pine-soft: #7fa98c;
+  --sky: #2f6f8f;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --sans: -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -21,6 +22,7 @@
     --amber: #e3a64b;
     --pine: #6fae86;
     --pine-soft: #3f5f4b;
+    --sky: #6fb7dd;
   }
 }
 
@@ -38,7 +40,7 @@ body {
 }
 
 .page {
-  max-width: 720px;
+  max-width: 1160px;
   margin: 0 auto;
   padding: 1.25rem 1rem 3rem;
 }
@@ -52,10 +54,29 @@ h1 {
   margin: 0 0 0.3rem;
 }
 
+h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.7rem;
+}
+
 .subtitle {
   color: var(--ink-soft);
   font-size: 0.92rem;
   margin: 0;
+  max-width: 48rem;
+}
+
+.subtitle em {
+  color: var(--amber);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.trees {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
 }
 
 .panel {
@@ -146,6 +167,15 @@ button.secondary {
   border-color: var(--ink);
 }
 
+.chip.rotated::after {
+  content: " \21bb rotated";
+  color: var(--amber);
+}
+
+.chip.current.rotated::after {
+  color: var(--amber);
+}
+
 .legend {
   display: flex;
   gap: 1.1rem;
@@ -178,11 +208,16 @@ button.secondary {
   border: 1.5px solid var(--pine-soft);
 }
 
-#tree-wrap {
+.swatch.in-range {
+  background: transparent;
+  border: 1.5px solid var(--sky);
+}
+
+.tree-wrap {
   overflow-x: auto;
 }
 
-#tree-svg {
+.tree-svg {
   display: block;
   width: 100%;
   min-height: 160px;
@@ -197,22 +232,22 @@ button.secondary {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.6rem;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.4rem;
   font-family: var(--mono);
   text-align: center;
 }
 
 .stats .stat-value {
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: 600;
 }
 
 .stats .stat-label {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   color: var(--ink-soft);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 
 .values {
@@ -221,4 +256,107 @@ button.secondary {
   color: var(--ink-soft);
   margin-top: 0.8rem;
   word-break: break-word;
+}
+
+.lookup-row {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 0.88rem;
+}
+
+.lookup-row input[type="number"] {
+  width: 3.5rem;
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.kth-result {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.range-row {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.range-label {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.5rem;
+}
+
+.range-label .range-lo-value,
+.range-label .range-hi-value {
+  color: var(--sky);
+  font-weight: 600;
+}
+
+/* Two overlapping range inputs forming one dual-handle slider. */
+.range-row {
+  position: relative;
+  height: 2rem;
+}
+
+.range-row input[type="range"] {
+  position: absolute;
+  top: 2.4rem;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.range-row input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.range-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sky);
+  border: 2px solid var(--paper);
+  margin-top: -8px;
+  cursor: pointer;
+}
+
+.range-row input[type="range"]::-moz-range-track {
+  height: 3px;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.range-row input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sky);
+  border: 2px solid var(--paper);
+  cursor: pointer;
+}
+
+.combine-panel {
+  margin-top: 1.5rem;
+}
+
+#combine-result .values {
+  margin-top: 0.5rem;
 }
