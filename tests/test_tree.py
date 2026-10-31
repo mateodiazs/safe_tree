@@ -1,3 +1,4 @@
+import dataclasses
 import math
 from collections.abc import Sequence
 
@@ -7,6 +8,7 @@ from hypothesis import strategies as st
 
 from safe_tree import (
     EMPTY,
+    Node,
     Tree,
     delete,
     depth,
@@ -186,3 +188,19 @@ def test_intersection_matches_set_intersection(a: list[int], b: list[int]) -> No
 def test_difference_matches_set_difference(a: list[int], b: list[int]) -> None:
     result = difference(build(a), build(b))
     assert set(in_order(result)) == set(a) - set(b)
+
+
+def test_node_fields_cannot_be_reassigned() -> None:
+    node = insert(EMPTY, 5)
+    assert isinstance(node, Node)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        node.value = 999  # type: ignore[misc]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        node.left = node  # type: ignore[misc]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        node.right = node  # type: ignore[misc]
+
+
+def test_empty_has_no_settable_attributes() -> None:
+    with pytest.raises(AttributeError):
+        EMPTY.value = 5  # type: ignore[attr-defined]
