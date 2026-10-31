@@ -1,8 +1,7 @@
 # safe_tree
 
 A purely functional, immutable, self-balancing (AVL) tree for Python.
-Every operation returns a new tree. Old versions stay valid. Structural
-sharing keeps that cheap.
+Every operation returns a new tree; old versions stay valid.
 
 ```python
 from safe_tree import EMPTY, insert, delete, member, in_order
@@ -164,7 +163,7 @@ list(in_order(difference(a, b)))  # [1, 2]
 ```
 
 Built on `insert`/`member`/`filter_tree` directly: O(size(other) * log n),
-not the optimal O(m + n) merge. Simple over optimal.
+not the optimal O(m + n) merge.
 
 ## Lenses
 
