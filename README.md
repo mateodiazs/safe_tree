@@ -162,8 +162,8 @@ list(in_order(intersection(a, b)))  # [3, 4]
 list(in_order(difference(a, b)))  # [1, 2]
 ```
 
-Built on `insert`/`member`/`filter_tree` directly: O(size(other) * log n),
-not the optimal O(m + n) merge.
+Built on `insert`/`member`/`filter_tree` directly, so it's
+O(size(other) * log n) rather than the optimal O(m + n) merge.
 
 ## Lenses
 
@@ -228,7 +228,7 @@ uv run pdoc -o docs safe_tree  # full API reference from the same docstrings
 
 ## Playground
 
-A local web app for two independent trees: insert/delete with a
+A local web app with two independent trees. Insert/delete with a
 version timeline (chips marked **rotated** when AVL actually fires),
 min/max/kth, a `range_query` slider, and a Combine panel for
 union/intersection/difference.
