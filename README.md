@@ -196,15 +196,15 @@ class Point:
 
 
 x_lens: Lens[Point, int] = Lens(
-    get=lambda p: p.x,
-    put=lambda p, x: Point(x, p.y),
+    get=lambda p: p.x,  # read x out of a Point
+    put=lambda p, x: Point(x, p.y),  # new Point with x swapped in, same y
 )
 
 node = Node(Point(1, 2), EMPTY, EMPTY)
-node_x = then(value_lens(), x_lens)
+node_x = then(value_lens(), x_lens)  # Node -> its value -> that value's x
 
 node_x.get(node)  # 1
-node_x.put(node, 9).value  # Point(x=9, y=2)
+node_x.put(node, 9).value  # Point(x=9, y=2) — node itself is untouched
 ```
 
 `value_lens()`, not `value_lens` bare — these are generic functions,
