@@ -70,6 +70,42 @@ since they're excluded from `Node.__match_args__`. Construct nodes via
 `insert`/`EMPTY`/`from_iterable`, not `Node(...)` directly with
 non-empty children, so this bookkeeping stays correct.
 
+## Immutability, concretely
+
+`Node` is `@dataclass(frozen=True, slots=True)`, so reassigning a
+field after construction raises — this isn't a convention, it's
+enforced, both at runtime and (since mypy treats frozen dataclass
+fields as read-only) at type-check time too:
+
+```python
+from safe_tree import EMPTY, Node, insert
+
+node = insert(EMPTY, 5)
+assert isinstance(node, Node)
+node.value = 999
+# mypy:    error: Property "value" defined in "Node" is read-only  [misc]
+# runtime: dataclasses.FrozenInstanceError: cannot assign to field 'value'
+```
+
+`tests/test_tree.py` pins both down. Two honest limits, worth knowing
+about rather than assuming away:
+
+- **`object.__setattr__` bypasses `frozen=True`.** This is true of
+  *every* frozen dataclass in Python — it's literally how `__init__`
+  sets fields on a frozen instance in the first place — not something
+  specific to this library, and not fixable without a compiled
+  extension type. If code is reaching for `object.__setattr__` to
+  mutate a node, it's working against the type on purpose.
+- **A mutable *value* stored in a tree can still be mutated in
+  place.** `insert(EMPTY, my_list)` keeps `my_list` immutable from the
+  tree's perspective — `tree.value is my_list`, not a copy — but
+  nothing stops `my_list.append(x)` afterward. Every persistent data
+  structure in every language has this same caveat for container
+  element types (Haskell's `Data.Map`, Clojure's persistent vectors,
+  Java's immutable collections all document it rather than pretend to
+  solve it) — the fix is the same here as everywhere else: store
+  immutable values.
+
 ## Structural sharing
 
 `insert` and `delete` only copy the nodes on the path to the change.
