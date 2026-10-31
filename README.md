@@ -1,8 +1,8 @@
 # safe_tree
 
 A purely functional, immutable, self-balancing (AVL) tree for Python.
-Every operation returns a new tree; old versions stay valid, and
-structural sharing means that's cheap.
+Every operation returns a new tree. Old versions stay valid. Structural
+sharing keeps that cheap.
 
 ```python
 from safe_tree import EMPTY, insert, delete, member, in_order
@@ -16,17 +16,6 @@ list(in_order(v2))  # [2, 5, 7, 8]
 list(in_order(v3))  # [5, 7, 8]
 member(v1, 7)  # False — v1 is exactly what it was before v2 existed
 ```
-
-## Why
-
-- **Immutable.** Every function returns a new tree.
-- **Structural sharing.** An update only allocates the nodes on the
-  path to the change.
-- **Self-balancing.** Depth stays within a constant factor of
-  log2(size) regardless of insertion order.
-- **No behavior hides in classes.** Data lives in frozen structs
-  (`Node`, `Lens`); every operation is a plain function over that data.
-- **Typed end to end.** `mypy --strict` clean, no implicit `Any`.
 
 ## Install
 
@@ -66,9 +55,9 @@ node.value = 999
 # runtime: dataclasses.FrozenInstanceError: cannot assign to field 'value'
 ```
 
-Two limits, not unique to this library: `object.__setattr__` bypasses
-`frozen=True` for every Python dataclass, and a mutable *value* stored
-in a tree can still be mutated in place — store immutable values.
+Two limits, and neither is specific to this library. `object.__setattr__`
+bypasses `frozen=True` on any Python dataclass. A mutable *value* stored
+in a tree can still be mutated in place, so store immutable values.
 
 ## Structural sharing
 
@@ -94,9 +83,9 @@ updated = insert(tree, 7)
 assert tree.left is updated.left  # the same object, not a copy
 ```
 
-`tests/test_sharing.py` asserts this with `is`, not `==`. (When a
+`tests/test_sharing.py` asserts this with `is`, not `==`. When a
 rotation fires, a couple of extra nodes get rebuilt beyond the bare
-insertion path — still O(log n), just not always the bare minimum.)
+insertion path. Still O(log n), just not always the minimum.
 
 ## Staying balanced
 
@@ -174,8 +163,8 @@ list(in_order(intersection(a, b)))  # [3, 4]
 list(in_order(difference(a, b)))  # [1, 2]
 ```
 
-Built on `insert`/`member`/`filter_tree` directly — O(size(other) * log n),
-not an optimal O(m + n) merge, in exchange for being obviously correct.
+Built on `insert`/`member`/`filter_tree` directly: O(size(other) * log n),
+not the optimal O(m + n) merge. Simple over optimal.
 
 ## Lenses
 
@@ -207,11 +196,11 @@ node_x.get(node)  # 1
 node_x.put(node, 9).value  # Point(x=9, y=2) — node itself is untouched
 ```
 
-`value_lens()`, not `value_lens` bare — these are generic functions,
-not pre-built values, so `mypy` can resolve the type parameter.
+`value_lens()`, not `value_lens` bare. These are generic functions, not
+pre-built values, so `mypy` can resolve the type parameter.
 
-No general `path_lens`: a node's own fields always exist (safe to
-get/put), but a deeper tree position may not — that's a job for
+No general `path_lens`. A node's own fields always exist and are safe
+to get/put, but a deeper tree position might not. That's a job for
 pattern matching, not a lens.
 
 ## API
@@ -240,17 +229,17 @@ uv run pdoc -o docs safe_tree  # full API reference from the same docstrings
 
 ## Playground
 
-A local web app for watching the guarantees above happen instead of
-just reading about them: two independent trees, each with its own
-timeline (chips marked **rotated** when AVL actually fires), min/max/kth,
-a `range_query` slider, and a Combine panel for union/intersection/difference.
+A local web app for two independent trees: insert/delete with a
+version timeline (chips marked **rotated** when AVL actually fires),
+min/max/kth, a `range_query` slider, and a Combine panel for
+union/intersection/difference.
 
 ```sh
 uv run --group playground uvicorn playground.app:app --host 0.0.0.0 --port 8000
 ```
 
 Open `http://localhost:8000`, or `http://<your-LAN-IP>:8000` from a
-phone on the same Wi-Fi (or over Tailscale, from anywhere).
+phone on the same Wi-Fi, or over Tailscale from anywhere.
 
 ## Development
 
