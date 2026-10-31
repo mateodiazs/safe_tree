@@ -311,12 +311,22 @@ uv run pdoc -o docs safe_tree
 
 ## Playground
 
-A small local web app for watching structural sharing happen instead of
-just reading about it: insert and delete values, and every version you
-create shows up on a timeline. Selecting a version highlights which of
-its nodes are new (amber) versus literally the same object as in the
-version before it (pine outline) — the same thing `tests/test_sharing.py`
-checks with `is`.
+A small local web app for watching the library's own guarantees happen
+instead of just reading about them. Two independent trees (A and B),
+each with their own insert/delete controls and version timeline:
+
+- Selecting a version highlights which of its nodes are new (amber)
+  versus literally the same object as in the version before it (pine
+  outline) — the same thing `tests/test_sharing.py` checks with `is`.
+- A timeline chip is marked **rotated** when that step's AVL
+  rebalancing actually fired, detected by comparing the real result's
+  shape against what a plain, non-rebalancing insert/delete would have
+  produced from the same starting point.
+- `min`/`max` and a `kth` lookup sit next to size/depth in the stats
+  panel; a `range_query` slider highlights matching nodes directly on
+  the tree.
+- A **Combine** panel runs `union`/`intersection`/`difference` on
+  A and B's current trees and renders the result.
 
 ```sh
 uv run --group playground uvicorn playground.app:app --host 0.0.0.0 --port 8000
@@ -324,7 +334,7 @@ uv run --group playground uvicorn playground.app:app --host 0.0.0.0 --port 8000
 
 Open `http://localhost:8000` on the same machine, or, since it's bound
 to `0.0.0.0`, `http://<your-machine's-LAN-IP>:8000` from a phone on the
-same Wi-Fi network.
+same Wi-Fi network (or over something like Tailscale, from anywhere).
 
 ## Development
 
