@@ -204,3 +204,42 @@ def test_node_fields_cannot_be_reassigned() -> None:
 def test_empty_has_no_settable_attributes() -> None:
     with pytest.raises(AttributeError):
         EMPTY.value = 5  # type: ignore[attr-defined]
+
+
+def subtree_sum(value: int, left: Tree[int], right: Tree[int]) -> int:
+    children: int = sum(t.summary for t in (left, right) if isinstance(t, Node))
+    return value + children
+
+
+def summaries_match(tree: Tree[int]) -> bool:
+    match tree:
+        case Node(_, left, right):
+            return (
+                tree.summary == sum(in_order(tree))
+                and summaries_match(left)
+                and summaries_match(right)
+            )
+        case _:
+            return True
+
+
+@given(st.lists(st.integers()), st.lists(st.integers()))
+def test_summaries_survive_inserts_deletes_and_rotations(
+    added: list[int], removed: list[int]
+) -> None:
+    tree: Tree[int] = EMPTY
+    for value in added:
+        tree = insert(tree, value, subtree_sum)
+    for value in removed + added[::2]:
+        tree = delete(tree, value, subtree_sum)
+    assert summaries_match(tree)
+
+
+def test_summary_is_left_out_of_equality() -> None:
+    assert insert(EMPTY, 5, lambda v, _l, _r: v) == insert(EMPTY, 5)
+
+
+@given(st.lists(st.integers()))
+def test_map_tree_rebuilds_summaries(values: list[int]) -> None:
+    doubled = map_tree(build(values), lambda v: 2 * v, subtree_sum)
+    assert summaries_match(doubled)
