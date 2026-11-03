@@ -1,25 +1,8 @@
-"""Zyphra Hierarchical Attention (ZHA) in JAX: a tree of key summaries over a KV cache.
+"""Zyphra Hierarchical Attention (ZHA) in JAX, from arXiv:2610.42112.
 
-From "Subquadratic Attention with a Hierarchical Tree-Structured Indexer"
-(Lufkin et al., arXiv:2610.42112). Every ``chunk`` neighbouring keys are
-summarised into one node, every ``chunk`` nodes into a parent, and so on
-for ``depth`` levels. A node stores one compressed key and one bias per
-reference query; its score for a query is the best of those lines, an
-estimate of the log attention mass the query puts on the node's keys,
-never too high and exact at a reference query. A query keeps the top
-``k`` nodes at each level from the top down, then attends densely to the
-keys in the ``k`` leaves it reached.
-
-Each level is a pair of arrays, so every function here works under
-`jax.jit`, `jax.vmap` and `jax.grad`. The reference queries are the only
-learned parameters: `loss` is the paper's training objective.
-
-Not covered: the RoPE correction, and the paper's top-p selection, which
-this replaces with a fixed top-``k`` per level so shapes stay static.
-Attention covers only the routed keys; the paper also always reads the
-first key and the newest keys, which a caller can attend to separately.
-
-Needs the ``jax`` dependency group (``uv sync --group jax``).
+Differs from the paper: a fixed top-``k`` per level instead of top-p, no
+RoPE correction, and attention reads only the routed keys, not also the
+first and newest keys.
 """
 
 from __future__ import annotations
