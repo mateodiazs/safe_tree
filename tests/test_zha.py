@@ -8,7 +8,7 @@ import jax
 import jax.numpy as jnp
 from jax.scipy.special import logsumexp
 
-from safe_tree.zha import attend, build, loss, route, scores
+from safe_tree.attention.zha import attend, build, loss, route, scores
 
 D, CHUNK, DEPTH = 8, 4, 3
 T = 2 * CHUNK**DEPTH
