@@ -295,3 +295,17 @@ tree = insert(insert(insert(EMPTY, 5), 2), 8)
 jax.tree_util.tree_leaves(tree)  # [5, 2, 8]
 list(in_order(jax.tree_util.tree_map(lambda v: v * 2, tree)))  # [4, 10, 16]
 ```
+
+## ZHA
+
+A minimal JAX version of Zyphra Hierarchical Attention ([arXiv:2610.42112](https://arxiv.org/abs/2610.42112)).
+
+```python
+import jax
+from safe_tree.attention.zha import attend, build
+
+# keys, values: (4096, 64); queries: (32, 64); refs: (16, 64)
+levels = build(refs, keys, chunk=16, depth=3)
+out = jax.vmap(attend, in_axes=(None, None, None, 0, None))(levels, keys, values, queries, 8)
+out.shape  # (32, 64)
+```
