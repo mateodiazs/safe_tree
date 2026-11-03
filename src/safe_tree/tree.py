@@ -15,7 +15,7 @@ operation here is recursive rather than iterative) on sorted input.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import reduce
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, Protocol
@@ -69,6 +69,11 @@ class Node[A]:
     directly with non-empty children, so they stay correct. They're
     excluded from `__match_args__` so pattern matching on a node's
     logical shape (``case Node(value, left, right):``) still works.
+
+    `summary` is whatever the ``summarise`` function given to `insert` or
+    `delete` computed for this node's subtree, or None without one. Like
+    `height` and `size`, it is rebuilt from the children whenever a node is
+    rebuilt, rotations included. It is left out of ``==`` and ``hash``.
     """
 
     value: A
@@ -76,43 +81,53 @@ class Node[A]:
     right: Tree[A]
     height: int = 1
     size: int = 1
+    summary: Any = field(default=None, compare=False)
 
     __match_args__ = ("value", "left", "right")
 
 
 type Tree[A] = Empty | Node[A]
 
+type Summarise[A] = Callable[[A, Tree[A], Tree[A]], Any]
 
-def _node[A](value: A, left: Tree[A], right: Tree[A]) -> Node[A]:
-    """Build a `Node`, computing its height and size from its children."""
+
+def _node[A](
+    value: A, left: Tree[A], right: Tree[A], summarise: Summarise[A] | None = None
+) -> Node[A]:
+    """Build a `Node`, computing its height, size and summary from its children."""
     return Node(
         value,
         left,
         right,
         height=1 + max(depth(left), depth(right)),
         size=1 + size(left) + size(right),
+        summary=None if summarise is None else summarise(value, left, right),
     )
 
 
-def _rotate_left[A](node: Node[A]) -> Node[A]:
+def _rotate_left[A](node: Node[A], summarise: Summarise[A] | None) -> Node[A]:
     """Left rotation: ``node.right`` becomes the new local root."""
     match node.right:
         case Node() as pivot:
-            return _node(pivot.value, _node(node.value, node.left, pivot.left), pivot.right)
+            inner = _node(node.value, node.left, pivot.left, summarise)
+            return _node(pivot.value, inner, pivot.right, summarise)
         case Empty():
             return node
 
 
-def _rotate_right[A](node: Node[A]) -> Node[A]:
+def _rotate_right[A](node: Node[A], summarise: Summarise[A] | None) -> Node[A]:
     """Right rotation: ``node.left`` becomes the new local root."""
     match node.left:
         case Node() as pivot:
-            return _node(pivot.value, pivot.left, _node(node.value, pivot.right, node.right))
+            inner = _node(node.value, pivot.right, node.right, summarise)
+            return _node(pivot.value, pivot.left, inner, summarise)
         case Empty():
             return node
 
 
-def _rebalance[A](value: A, left: Tree[A], right: Tree[A]) -> Node[A]:
+def _rebalance[A](
+    value: A, left: Tree[A], right: Tree[A], summarise: Summarise[A] | None
+) -> Node[A]:
     """Restore the AVL height invariant for one node, rotating if needed.
 
     `insert` and `delete` call this once per node on the path they
@@ -126,19 +141,23 @@ def _rebalance[A](value: A, left: Tree[A], right: Tree[A]) -> Node[A]:
         match left:
             case Node() as left_node:
                 if depth(left_node.left) < depth(left_node.right):
-                    return _rotate_right(_node(value, _rotate_left(left_node), right))
-                return _rotate_right(_node(value, left_node, right))
+                    rotated = _rotate_left(left_node, summarise)
+                    return _rotate_right(_node(value, rotated, right, summarise), summarise)
+                return _rotate_right(_node(value, left_node, right, summarise), summarise)
     elif balance < -1:
         match right:
             case Node() as right_node:
                 if depth(right_node.right) < depth(right_node.left):
-                    return _rotate_left(_node(value, left, _rotate_right(right_node)))
-                return _rotate_left(_node(value, left, right_node))
+                    rotated = _rotate_right(right_node, summarise)
+                    return _rotate_left(_node(value, left, rotated, summarise), summarise)
+                return _rotate_left(_node(value, left, right_node, summarise), summarise)
 
-    return _node(value, left, right)
+    return _node(value, left, right, summarise)
 
 
-def insert[C: Comparable](tree: Tree[C], value: C) -> Tree[C]:
+def insert[C: Comparable](
+    tree: Tree[C], value: C, summarise: Summarise[C] | None = None
+) -> Tree[C]:
     """Return a new tree with ``value`` inserted in sorted order.
 
     Only the nodes on the path to the insertion point are copied; every
@@ -150,24 +169,29 @@ def insert[C: Comparable](tree: Tree[C], value: C) -> Tree[C]:
     Args:
         tree: The tree to insert into.
         value: The value to insert.
+        summarise: Computes `Node.summary` from a node's value and its two
+            subtrees, whose own summaries are already set. Pass the same
+            function to every `insert` and `delete` on a tree.
 
     Returns:
         A new tree containing every value in ``tree`` plus ``value``.
     """
     match tree:
         case Empty():
-            return _node(value, EMPTY, EMPTY)
+            return _node(value, EMPTY, EMPTY, summarise)
         case Node(v, left, right):
             if value < v:
-                new_left = insert(left, value)
-                return tree if new_left is left else _rebalance(v, new_left, right)
+                new_left = insert(left, value, summarise)
+                return tree if new_left is left else _rebalance(v, new_left, right, summarise)
             if v < value:
-                new_right = insert(right, value)
-                return tree if new_right is right else _rebalance(v, left, new_right)
-            return tree if value is v else _node(value, left, right)
+                new_right = insert(right, value, summarise)
+                return tree if new_right is right else _rebalance(v, left, new_right, summarise)
+            return tree if value is v else _node(value, left, right, summarise)
 
 
-def delete[C: Comparable](tree: Tree[C], value: C) -> Tree[C]:
+def delete[C: Comparable](
+    tree: Tree[C], value: C, summarise: Summarise[C] | None = None
+) -> Tree[C]:
     """Return a new tree with ``value`` removed, if present.
 
     As with `insert`, only the nodes on the path to the removed value
@@ -178,6 +202,7 @@ def delete[C: Comparable](tree: Tree[C], value: C) -> Tree[C]:
     Args:
         tree: The tree to delete from.
         value: The value to remove.
+        summarise: As for `insert`.
 
     Returns:
         A new tree containing every value in ``tree`` except ``value``.
@@ -187,15 +212,15 @@ def delete[C: Comparable](tree: Tree[C], value: C) -> Tree[C]:
             return tree
         case Node(v, left, right):
             if value < v:
-                new_left = delete(left, value)
-                return tree if new_left is left else _rebalance(v, new_left, right)
+                new_left = delete(left, value, summarise)
+                return tree if new_left is left else _rebalance(v, new_left, right, summarise)
             if v < value:
-                new_right = delete(right, value)
-                return tree if new_right is right else _rebalance(v, left, new_right)
-            return _join(left, right)
+                new_right = delete(right, value, summarise)
+                return tree if new_right is right else _rebalance(v, left, new_right, summarise)
+            return _join(left, right, summarise)
 
 
-def _join[C: Comparable](left: Tree[C], right: Tree[C]) -> Tree[C]:
+def _join[C: Comparable](left: Tree[C], right: Tree[C], summarise: Summarise[C] | None) -> Tree[C]:
     """Combine two subtrees once the value between them is removed."""
     match left, right:
         case Empty(), _:
@@ -204,7 +229,8 @@ def _join[C: Comparable](left: Tree[C], right: Tree[C]) -> Tree[C]:
             return left
         case Node() as left_node, Node() as right_node:
             successor = _min_value(right_node)
-            return _rebalance(successor, left_node, delete(right_node, successor))
+            remaining = delete(right_node, successor, summarise)
+            return _rebalance(successor, left_node, remaining, summarise)
 
 
 def _min_value[A](node: Node[A]) -> A:
@@ -340,7 +366,9 @@ def equal[A](a: Tree[A], b: Tree[A]) -> bool:
     return all(x == y for x, y in zip_longest(in_order(a), in_order(b), fillvalue=sentinel))
 
 
-def map_tree[A, B](tree: Tree[A], f: Callable[[A], B]) -> Tree[B]:
+def map_tree[A, B](
+    tree: Tree[A], f: Callable[[A], B], summarise: Summarise[B] | None = None
+) -> Tree[B]:
     """Apply ``f`` to every value, preserving the tree's shape.
 
     ``f`` is not assumed to preserve ordering, so the result may no
@@ -349,6 +377,7 @@ def map_tree[A, B](tree: Tree[A], f: Callable[[A], B]) -> Tree[B]:
     Args:
         tree: The tree to map over.
         f: The function applied to each value.
+        summarise: As for `insert`, applied to the mapped tree bottom-up.
 
     Returns:
         A new tree shaped like ``tree``, with every value ``v``
@@ -358,7 +387,9 @@ def map_tree[A, B](tree: Tree[A], f: Callable[[A], B]) -> Tree[B]:
         case Empty():
             return EMPTY
         case Node(v, left, right):
-            return _node(f(v), map_tree(left, f), map_tree(right, f))
+            return _node(
+                f(v), map_tree(left, f, summarise), map_tree(right, f, summarise), summarise
+            )
 
 
 def fold[A, B](tree: Tree[A], f: Callable[[B, A], B], init: B) -> B:

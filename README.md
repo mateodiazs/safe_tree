@@ -238,8 +238,8 @@ pattern matching, not a lens.
 
 | | |
 |---|---|
-| `insert(tree, value)` | New tree with `value` added, self-balancing. |
-| `delete(tree, value)` | New tree with `value` removed, self-balancing. |
+| `insert(tree, value, summarise=None)` | New tree with `value` added, self-balancing. |
+| `delete(tree, value, summarise=None)` | New tree with `value` removed, self-balancing. |
 | `member(tree, value)` | Membership test. |
 | `equal(a, b)` | Same values, regardless of shape (`==` also works, but is shape-sensitive). |
 | `minimum(tree)` / `maximum(tree)` | Smallest / largest value, O(log n). |
@@ -247,7 +247,7 @@ pattern matching, not a lens.
 | `range_query(tree, lo, hi)` | Values in `[lo, hi]`, O(log n + k). |
 | `union` / `intersection` / `difference` | Set algebra between two trees. |
 | `from_iterable(values)` | Build a tree from any iterable. |
-| `map_tree(tree, f)` | Structure-preserving map over every value. |
+| `map_tree(tree, f, summarise=None)` | Structure-preserving map over every value. |
 | `fold(tree, f, init)` | In-order reduction to a single value. |
 | `filter_tree(tree, pred)` | Rebuild keeping only matching values. |
 | `in_order` / `pre_order` / `post_order` | Lazy traversal iterators. |
@@ -308,4 +308,13 @@ from safe_tree.attention.zha import attend, build
 levels = build(refs, keys, chunk=16, depth=3)
 out = jax.vmap(attend, in_axes=(None, None, None, 0, None))(levels, keys, values, queries, 8)
 out.shape  # (32, 64)
+```
+
+[`examples/zha.py`](examples/zha.py) does the same with the leaves held in a
+safe_tree tree. Pass `insert` a `summarise` function and each node keeps a
+summary of its subtree in `node.summary`, rebuilt only on the path an
+update touches. There, the summary is the subtree's compressed keys and biases.
+
+```sh
+uv run --group jax python -m examples.zha
 ```
